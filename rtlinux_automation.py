@@ -118,6 +118,7 @@ class RTLinuxAutomation:
         logger.info("=" * 60)
 
         build_config = self.config.get('build', {})
+        source_directory = build_config.get('source_directory', '.')
         build_command = build_config.get('command')
         output_files = build_config.get('outputs', [])
 
@@ -125,10 +126,27 @@ class RTLinuxAutomation:
             logger.error("No build command specified in target configuration!")
             return False
 
+        # Get absolute path for source directory
+        source_dir_abs = os.path.abspath(source_directory)
+
+        # Check if source directory exists
+        if not os.path.exists(source_dir_abs):
+            logger.error(f"✗ Source directory does not exist: {source_dir_abs}")
+            return False
+
+        # Save current working directory
+        original_cwd = os.getcwd()
+
+        logger.info(f"Source directory: {source_dir_abs}")
         logger.info(f"Build command: {build_command}")
         logger.info(f"Expected outputs: {', '.join(output_files)}")
 
         try:
+            # Change to source directory
+            logger.info(f"Changing to source directory: {source_dir_abs}")
+            os.chdir(source_dir_abs)
+
+            # Execute build command
             result = subprocess.run(
                 build_command,
                 shell=True,
@@ -143,15 +161,19 @@ class RTLinuxAutomation:
             if result.stderr:
                 logger.warning(f"Build warnings:\n{result.stderr}")
 
-            # Verify all output files exist
+            # Verify all output files exist (relative to source directory)
             all_exist = True
             for output_file in output_files:
-                if os.path.exists(output_file):
-                    size = os.path.getsize(output_file)
-                    logger.info(f"✓ Successfully built {output_file} ({size} bytes)")
+                output_path = os.path.join(source_dir_abs, output_file)
+                if os.path.exists(output_path):
+                    size = os.path.getsize(output_path)
+                    logger.info(f"✓ Successfully built {output_path} ({size} bytes)")
                 else:
-                    logger.error(f"✗ Expected output file not found: {output_file}")
+                    logger.error(f"✗ Expected output file not found: {output_path}")
                     all_exist = False
+
+            # Return to original directory
+            os.chdir(original_cwd)
 
             if not all_exist:
                 return False
@@ -160,10 +182,17 @@ class RTLinuxAutomation:
             return True
 
         except subprocess.CalledProcessError as e:
+            # Return to original directory on error
+            os.chdir(original_cwd)
             logger.error(f"✗ Build failed with exit code {e.returncode}")
             logger.error(f"STDERR: {e.stderr}")
             if e.stdout:
                 logger.error(f"STDOUT: {e.stdout}")
+            return False
+        except Exception as e:
+            # Return to original directory on any other error
+            os.chdir(original_cwd)
+            logger.error(f"✗ Build error: {e}")
             return False
 
     def upload_files_ftp(self):
@@ -279,10 +308,10 @@ class RTLinuxAutomation:
 
             # Set execute permissions
             logger.info("Setting execute permissions...")
-            chmod_files = ' '.join([f['remote'] for f in self.config['files_to_upload']])
-            child.sendline(f'chmod +x {chmod_files}')
-            child.expect(prompt_pattern, timeout=5)
-            logger.info("✓ Permissions set")
+            # chmod_files = ' '.join([f['remote'] for f in self.config['files_to_upload']])
+            # child.sendline(f'chmod +x {chmod_files}')
+            # child.expect(prompt_pattern, timeout=5)
+            # logger.info("✓ Permissions set")
 
             # Execute the shell script
             script_name = execution_config['script_name']
@@ -309,10 +338,10 @@ class RTLinuxAutomation:
                 logger.info(f"✓ Script completed in {execution_time:.2f} seconds")
 
                 # Store output for metrics parsing
-                self.metrics['output'] = output
-                self.metrics['execution_time'] = execution_time
-                self.metrics['timestamp'] = datetime.now().isoformat()
-                self.metrics['target'] = self.target_name
+                # self.metrics['output'] = output
+                # self.metrics['execution_time'] = execution_time
+                # self.metrics['timestamp'] = datetime.now().isoformat()
+                # self.metrics['target'] = self.target_name
 
             except pexpect.TIMEOUT:
                 logger.error(f"✗ Script execution timed out after {script_timeout} seconds")
