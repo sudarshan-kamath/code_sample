@@ -1,0 +1,132 @@
+{
+  "targets": {
+    "target1": {
+      "description": "Primary RTLinux target - Standard test configuration",
+      "build": {
+        "command": "gcc -o client.out client.c && gcc -o server.out server.c",
+        "outputs": ["client.out", "server.out"]
+      },
+      "ftp": {
+        "host": "192.168.1.100",
+        "port": 21,
+        "username": "rtlinux_user",
+        "password": "rtlinux_pass",
+        "target_directory": "/tmp",
+        "timeout": 30
+      },
+      "telnet": {
+        "host": "192.168.1.100",
+        "port": 23,
+        "username": "rtlinux_user",
+        "password": "rtlinux_pass",
+        "prompt_pattern": "[$#]\\s*",
+        "timeout": 30
+      },
+      "files_to_upload": [
+        {
+          "local": "client.out",
+          "remote": "client.out"
+        },
+        {
+          "local": "server.out",
+          "remote": "server.out"
+        },
+        {
+          "local": "run_test.sh",
+          "remote": "run_test.sh"
+        }
+      ],
+      "execution": {
+        "script_name": "run_test.sh",
+        "timeout": 120,
+        "metrics_file": "metrics.txt"
+      }
+    },
+    "target2": {
+      "description": "Secondary RTLinux target - High performance build",
+      "build": {
+        "command": "gcc -O3 -march=native -o client.out client.c && gcc -O3 -march=native -o server.out server.c",
+        "outputs": ["client.out", "server.out"]
+      },
+      "ftp": {
+        "host": "192.168.1.101",
+        "port": 21,
+        "username": "rtlinux_user",
+        "password": "rtlinux_pass",
+        "target_directory": "/tmp/perf_test",
+        "timeout": 30
+      },
+      "telnet": {
+        "host": "192.168.1.101",
+        "port": 23,
+        "username": "rtlinux_user",
+        "password": "rtlinux_pass",
+        "prompt_pattern": "[$#]\\s*",
+        "timeout": 30
+      },
+      "files_to_upload": [
+        {
+          "local": "client.out",
+          "remote": "client.out"
+        },
+        {
+          "local": "server.out",
+          "remote": "server.out"
+        },
+        {
+          "local": "run_test.sh",
+          "remote": "run_test.sh"
+        }
+      ],
+      "execution": {
+        "script_name": "run_test.sh",
+        "timeout": 180,
+        "metrics_file": "metrics.txt"
+      }
+    },
+    "target3": {
+      "description": "Development target - Debug build with symbols",
+      "build": {
+        "command": "gcc -g -Wall -Wextra -o client.out client.c && gcc -g -Wall -Wextra -o server.out server.c",
+        "outputs": ["client.out", "server.out"]
+      },
+      "ftp": {
+        "host": "192.168.1.102",
+        "port": 21,
+        "username": "dev_user",
+        "password": "dev_pass",
+        "target_directory": "/home/dev/test",
+        "timeout": 30
+      },
+      "telnet": {
+        "host": "192.168.1.102",
+        "port": 23,
+        "username": "dev_user",
+        "password": "dev_pass",
+        "prompt_pattern": "[$#]\\s*",
+        "timeout": 30
+      },
+      "files_to_upload": [
+        {
+          "local": "client.out",
+          "remote": "client.out"
+        },
+        {
+          "local": "server.out",
+          "remote": "server.out"
+        },
+        {
+          "local": "run_test.sh",
+          "remote": "run_test.sh"
+        }
+      ],
+      "execution": {
+        "script_name": "run_test.sh",
+        "timeout": 120,
+        "metrics_file": "metrics.txt"
+      }
+    }
+  },
+  "default_target": "target1",
+  "debug": false
+}
