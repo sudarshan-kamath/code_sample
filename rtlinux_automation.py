@@ -22,11 +22,7 @@ from ftplib import FTP
 from datetime import datetime
 import logging
 
-try:
-    import pexpect
-except ImportError:
-    print("ERROR: pexpect module not found. Install it with: pip install pexpect")
-    sys.exit(1)
+
 
 # Configure logging
 logging.basicConfig(
@@ -298,6 +294,12 @@ class RTLinuxAutomation:
 
     def execute_via_telnet(self):
         """Connect via telnet and execute the shell script."""
+        try:
+            import pexpect
+        except ImportError:
+            logger.error("ERROR: pexpect module not found. Install it with: pip install pexpect")
+            logger.error("Pexpect is only required for telnet execution. Skipping this step.")
+            return False
         logger.info("=" * 60)
         logger.info("STEP 3: Executing script via Telnet")
         logger.info("=" * 60)
@@ -486,13 +488,13 @@ class RTLinuxAutomation:
                 return False
 
         # Step 3: Execute
-        if 'execute' in steps:
-            if self.execute_via_telnet():
-                steps_executed.append('execute')
-            else:
-                steps_failed.append('execute')
-                logger.error("Telnet execution failed.")
-                return False
+        # if 'execute' in steps:
+        #     if self.execute_via_telnet():
+        #         steps_executed.append('execute')
+        #     else:
+        #         steps_failed.append('execute')
+        #         logger.error("Telnet execution failed.")
+        #         return False
 
         # Save metrics if we executed anything
         if steps_executed:
