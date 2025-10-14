@@ -112,7 +112,7 @@ To find your prompt pattern, connect via telnet and note the exact prompt.
 
 ### Basic Usage
 
-Run the automation script:
+Run all steps (build, upload, execute):
 ```bash
 python3 rtlinux_automation.py
 ```
@@ -122,6 +122,101 @@ This will:
 2. Upload them to RTLinux via FTP
 3. Execute `run_test.sh` via Telnet
 4. Capture and save metrics
+
+### Target Selection
+
+Use different targets defined in `config.json`:
+```bash
+# Use default target (target1)
+python3 rtlinux_automation.py
+
+# Use specific target by shorthand
+python3 rtlinux_automation.py --target1
+python3 rtlinux_automation.py --target2
+python3 rtlinux_automation.py --target3
+
+# Use target by name
+python3 rtlinux_automation.py --target my_custom_target
+
+# List all available targets
+python3 rtlinux_automation.py --list-targets
+```
+
+### Step Selection
+
+Execute individual steps or combinations:
+
+**Run specific step only:**
+```bash
+# Only build (no upload or execute)
+python3 rtlinux_automation.py --build-only
+
+# Only upload (assumes files already built)
+python3 rtlinux_automation.py --upload-only
+
+# Only execute on RTLinux (test telnet connection)
+python3 rtlinux_automation.py --execute-only
+```
+
+**Run multiple steps:**
+```bash
+# Build and upload (no execution)
+python3 rtlinux_automation.py --steps build,upload
+
+# Upload and execute (skip build)
+python3 rtlinux_automation.py --steps upload,execute
+
+# All steps explicitly
+python3 rtlinux_automation.py --all
+```
+
+**Combine with target selection:**
+```bash
+# Build target2 only
+python3 rtlinux_automation.py --target2 --build-only
+
+# Execute target3 with debug
+python3 rtlinux_automation.py --target3 --execute-only --debug
+
+# Build and upload to target1
+python3 rtlinux_automation.py --target1 --steps build,upload
+```
+
+### Use Cases for Step Selection
+
+**1. Testing Builds**
+```bash
+# Verify compilation without deployment
+python3 rtlinux_automation.py --build-only
+```
+
+**2. Testing Telnet Connection**
+```bash
+# Test connectivity and script execution without building
+python3 rtlinux_automation.py --execute-only --debug
+```
+
+**3. Rapid Development Iteration**
+```bash
+# Build once
+python3 rtlinux_automation.py --build-only
+
+# Then repeatedly upload and test (faster iteration)
+python3 rtlinux_automation.py --steps upload,execute
+python3 rtlinux_automation.py --steps upload,execute
+```
+
+**4. Using Pre-Built Binaries**
+```bash
+# Skip build if you have pre-compiled binaries
+python3 rtlinux_automation.py --steps upload,execute
+```
+
+**5. Deployment Only**
+```bash
+# Build and deploy without running tests
+python3 rtlinux_automation.py --steps build,upload
+```
 
 ### Advanced Usage
 
@@ -135,9 +230,16 @@ Enable debug mode (shows telnet session):
 python3 rtlinux_automation.py -d
 ```
 
-Combine options:
+Combine all options:
 ```bash
-python3 rtlinux_automation.py -c production.json -d
+python3 rtlinux_automation.py -c production.json --target2 --execute-only -d
+```
+
+### Complete Help
+
+View all options:
+```bash
+python3 rtlinux_automation.py --help
 ```
 
 ## Output Files

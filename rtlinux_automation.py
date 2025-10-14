@@ -416,38 +416,65 @@ class RTLinuxAutomation:
         except Exception as e:
             logger.error(f"✗ Failed to save metrics: {e}")
 
-    def run(self):
-        """Execute the complete automation workflow."""
+    def run(self, steps=['build', 'upload', 'execute']):
+        """
+        Execute the automation workflow with specified steps.
+
+        Args:
+            steps: List of steps to execute. Options: 'build', 'upload', 'execute'
+                   Default: all steps
+        """
         logger.info("\n" + "=" * 60)
         logger.info(f"RTLinux Automation Script Started - Target: {self.target_name}")
+        logger.info(f"Steps to execute: {', '.join(steps)}")
         logger.info("=" * 60 + "\n")
 
         start_time = time.time()
+        steps_executed = []
+        steps_failed = []
 
         # Step 1: Build
-        if not self.build_executables():
-            logger.error("Build failed. Aborting.")
-            return False
+        if 'build' in steps:
+            if self.build_executables():
+                steps_executed.append('build')
+            else:
+                steps_failed.append('build')
+                logger.error("Build failed. Aborting.")
+                return False
 
         # Step 2: Upload
-        if not self.upload_files_ftp():
-            logger.error("FTP upload failed. Aborting.")
-            return False
+        if 'upload' in steps:
+            if self.upload_files_ftp():
+                steps_executed.append('upload')
+            else:
+                steps_failed.append('upload')
+                logger.error("FTP upload failed. Aborting.")
+                return False
 
         # Step 3: Execute
-        if not self.execute_via_telnet():
-            logger.error("Telnet execution failed.")
-            return False
+        if 'execute' in steps:
+            if self.execute_via_telnet():
+                steps_executed.append('execute')
+            else:
+                steps_failed.append('execute')
+                logger.error("Telnet execution failed.")
+                return False
 
-        # Save metrics
-        self.save_metrics()
+        # Save metrics if we executed anything
+        if steps_executed:
+            self.save_metrics()
 
         total_time = time.time() - start_time
         logger.info("=" * 60)
-        logger.info(f"✓ Automation completed successfully in {total_time:.2f} seconds")
+        if steps_failed:
+            logger.error(f"✗ Failed steps: {', '.join(steps_failed)}")
+            logger.info(f"Completed in {total_time:.2f} seconds")
+        else:
+            logger.info(f"✓ Steps completed successfully: {', '.join(steps_executed)}")
+            logger.info(f"Total time: {total_time:.2f} seconds")
         logger.info("=" * 60 + "\n")
 
-        return True
+        return len(steps_failed) == 0
 
 
 def create_help_text():
@@ -495,6 +522,24 @@ OPTIONS
         List all available targets from configuration and exit.
         Shows target descriptions, hosts, and build commands.
 
+    -s STEPS, --steps STEPS
+        Comma-separated list of steps to execute.
+        Valid steps: build, upload, execute
+        Example: --steps build,upload
+        Default: all steps (build,upload,execute)
+
+    --build-only
+        Execute only the build step (shorthand for --steps build)
+
+    --upload-only
+        Execute only the upload step (shorthand for --steps upload)
+
+    --execute-only
+        Execute only the execute step (shorthand for --steps execute)
+
+    --all
+        Execute all steps (default behavior)
+
     -d, --debug
         Enable debug mode. Shows detailed telnet session output in real-time.
         Useful for troubleshooting connection and execution issues.
@@ -533,11 +578,26 @@ CONFIGURATION FILE
     }
 
 EXAMPLES
-    Run automation using default target:
+    Run all steps (build, upload, execute) using default target:
         ./rtlinux_automation.py
 
     Run automation on target2:
         ./rtlinux_automation.py --target2
+
+    Only build executables (no upload or execute):
+        ./rtlinux_automation.py --build-only
+
+    Only test telnet connection (no build or upload):
+        ./rtlinux_automation.py --execute-only
+
+    Build and upload, but don't execute:
+        ./rtlinux_automation.py --steps build,upload
+
+    Only upload (assumes files already built):
+        ./rtlinux_automation.py --upload-only
+
+    Upload and execute (skip build):
+        ./rtlinux_automation.py --steps upload,execute
 
     Run with custom configuration file:
         ./rtlinux_automation.py -c production.json --target1
@@ -546,10 +606,10 @@ EXAMPLES
         ./rtlinux_automation.py --list-targets
 
     Run in debug mode to see telnet session:
-        ./rtlinux_automation.py --target1 --debug
+        ./rtlinux_automation.py --target1 --execute-only --debug
 
-    Use specific target by name:
-        ./rtlinux_automation.py --target my_custom_target
+    Use specific target by name with specific steps:
+        ./rtlinux_automation.py --target my_custom_target --steps build,execute
 
 WORKFLOW
     The automation follows this sequence:
@@ -718,6 +778,41 @@ def main():
         help='Use target3 (shorthand for --target target3)'
     )
 
+    # Step selection
+    step_group = parser.add_argument_group('Step Selection')
+    step_group.add_argument(
+        '-s', '--steps',
+        help='Comma-separated list of steps to execute: build,upload,execute (default: all)'
+    )
+    step_group.add_argument(
+        '--build-only',
+        action='store_const',
+        const='build',
+        dest='step_shorthand',
+        help='Execute only the build step'
+    )
+    step_group.add_argument(
+        '--upload-only',
+        action='store_const',
+        const='upload',
+        dest='step_shorthand',
+        help='Execute only the upload step'
+    )
+    step_group.add_argument(
+        '--execute-only',
+        action='store_const',
+        const='execute',
+        dest='step_shorthand',
+        help='Execute only the execute step'
+    )
+    step_group.add_argument(
+        '--all',
+        action='store_const',
+        const='all',
+        dest='step_shorthand',
+        help='Execute all steps (default behavior)'
+    )
+
     # Options
     options_group = parser.add_argument_group('Options')
     options_group.add_argument(
@@ -746,8 +841,28 @@ def main():
     if args.debug:
         automation.full_config['debug'] = True
 
-    # Run automation
-    success = automation.run()
+    # Determine which steps to run
+    steps_to_run = ['build', 'upload', 'execute']  # default
+
+    if args.steps:
+        # Parse comma-separated list
+        steps_to_run = [s.strip().lower() for s in args.steps.split(',')]
+        # Validate steps
+        valid_steps = {'build', 'upload', 'execute'}
+        invalid_steps = [s for s in steps_to_run if s not in valid_steps]
+        if invalid_steps:
+            logger.error(f"Invalid step(s): {', '.join(invalid_steps)}")
+            logger.error(f"Valid steps are: {', '.join(valid_steps)}")
+            sys.exit(1)
+    elif args.step_shorthand:
+        # Handle shorthand options
+        if args.step_shorthand == 'all':
+            steps_to_run = ['build', 'upload', 'execute']
+        else:
+            steps_to_run = [args.step_shorthand]
+
+    # Run automation with selected steps
+    success = automation.run(steps=steps_to_run)
 
     sys.exit(0 if success else 1)
 
