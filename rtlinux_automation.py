@@ -102,95 +102,129 @@ class RTLinuxAutomation:
         for name, config in self.full_config['targets'].items():
             desc = config.get('description', 'No description')
             host = config.get('telnet', {}).get('host', 'N/A')
+            builds = config.get('builds', [])
+            build_summary = f"{len(builds)} build(s)" if builds else "No builds"
+
             print(f"\n  {name}")
             print(f"    Description: {desc}")
             print(f"    Host: {host}")
-            print(f"    Build: {config.get('build', {}).get('command', 'N/A')[:60]}...")
+            print(f"    Builds: {build_summary}")
+
+            for build in builds[:3]:  # Show first 3 builds
+                build_name = build.get('name', 'unnamed')
+                print(f"      - {build_name}")
 
         print("\n" + "=" * 80)
         default = self.full_config.get('default_target', 'target1')
         print(f"Default target: {default}\n")
 
     def build_executables(self):
-        """Build executables locally using the configured build command."""
+        """Build executables locally using the configured build commands."""
         logger.info("=" * 60)
         logger.info("STEP 1: Building executables")
         logger.info("=" * 60)
 
-        build_config = self.config.get('build', {})
-        source_directory = build_config.get('source_directory', '.')
-        build_command = build_config.get('command')
-        output_files = build_config.get('outputs', [])
+        builds = self.config.get('builds', [])
 
-        if not build_command:
-            logger.error("No build command specified in target configuration!")
-            return False
-
-        # Get absolute path for source directory
-        source_dir_abs = os.path.abspath(source_directory)
-
-        # Check if source directory exists
-        if not os.path.exists(source_dir_abs):
-            logger.error(f"✗ Source directory does not exist: {source_dir_abs}")
+        if not builds:
+            logger.error("No builds specified in target configuration!")
             return False
 
         # Save current working directory
         original_cwd = os.getcwd()
 
-        logger.info(f"Source directory: {source_dir_abs}")
-        logger.info(f"Build command: {build_command}")
-        logger.info(f"Expected outputs: {', '.join(output_files)}")
-
         try:
-            # Change to source directory
-            logger.info(f"Changing to source directory: {source_dir_abs}")
-            os.chdir(source_dir_abs)
+            # Iterate through each build configuration
+            for build_config in builds:
+                build_name = build_config.get('name', 'unnamed')
+                source_directory = build_config.get('source_directory', '.')
+                output_directory = build_config.get('output_directory', '.')
+                build_command = build_config.get('command')
+                output_files = build_config.get('outputs', [])
 
-            # Execute build command
-            result = subprocess.run(
-                build_command,
-                shell=True,
-                check=True,
-                capture_output=True,
-                text=True
-            )
+                logger.info(f"Building: {build_name}")
 
-            if result.stdout:
-                logger.info(f"Build output:\n{result.stdout}")
+                if not build_command:
+                    logger.error(f"✗ No build command specified for build '{build_name}'!")
+                    os.chdir(original_cwd)
+                    return False
 
-            if result.stderr:
-                logger.warning(f"Build warnings:\n{result.stderr}")
+                # Get absolute paths
+                source_dir_abs = os.path.abspath(source_directory)
+                output_dir_abs = os.path.abspath(output_directory)
 
-            # Verify all output files exist (relative to source directory)
-            all_exist = True
-            for output_file in output_files:
-                output_path = os.path.join(source_dir_abs, output_file)
-                if os.path.exists(output_path):
-                    size = os.path.getsize(output_path)
-                    logger.info(f"✓ Successfully built {output_path} ({size} bytes)")
-                else:
-                    logger.error(f"✗ Expected output file not found: {output_path}")
-                    all_exist = False
+                # Check if source directory exists
+                if not os.path.exists(source_dir_abs):
+                    logger.error(f"✗ Source directory does not exist: {source_dir_abs}")
+                    os.chdir(original_cwd)
+                    return False
+
+                # Create output directory if it doesn't exist
+                if not os.path.exists(output_dir_abs):
+                    try:
+                        os.makedirs(output_dir_abs)
+                        logger.info(f"✓ Created output directory: {output_dir_abs}")
+                    except Exception as e:
+                        logger.error(f"✗ Failed to create output directory: {e}")
+                        os.chdir(original_cwd)
+                        return False
+
+                logger.info(f"  Source directory: {source_dir_abs}")
+                logger.info(f"  Output directory: {output_dir_abs}")
+                logger.info(f"  Command: {build_command}")
+
+                try:
+                    # Change to source directory
+                    os.chdir(source_dir_abs)
+
+                    # Execute build command
+                    result = subprocess.run(
+                        build_command,
+                        shell=True,
+                        check=True,
+                        capture_output=True,
+                        text=True
+                    )
+
+                    if result.stdout:
+                        logger.info(f"  Build output:\n{result.stdout}")
+
+                    if result.stderr:
+                        logger.warning(f"  Build warnings:\n{result.stderr}")
+
+                    # Verify all output files exist in output directory
+                    all_exist = True
+                    for output_file in output_files:
+                        output_path = os.path.join(output_dir_abs, output_file)
+                        if os.path.exists(output_path):
+                            size = os.path.getsize(output_path)
+                            logger.info(f"  ✓ Successfully built {output_file} ({size} bytes)")
+                        else:
+                            logger.error(f"  ✗ Expected output file not found: {output_path}")
+                            all_exist = False
+
+                    if not all_exist:
+                        os.chdir(original_cwd)
+                        return False
+
+                except subprocess.CalledProcessError as e:
+                    os.chdir(original_cwd)
+                    logger.error(f"  ✗ Build '{build_name}' failed with exit code {e.returncode}")
+                    logger.error(f"  STDERR: {e.stderr}")
+                    if e.stdout:
+                        logger.error(f"  STDOUT: {e.stdout}")
+                    return False
+
+                logger.info(f"✓ Build '{build_name}' completed successfully")
 
             # Return to original directory
             os.chdir(original_cwd)
 
-            if not all_exist:
-                return False
-
             logger.info("All executables built successfully\n")
             return True
 
-        except subprocess.CalledProcessError as e:
-            # Return to original directory on error
-            os.chdir(original_cwd)
-            logger.error(f"✗ Build failed with exit code {e.returncode}")
-            logger.error(f"STDERR: {e.stderr}")
-            if e.stdout:
-                logger.error(f"STDOUT: {e.stdout}")
-            return False
         except Exception as e:
-            # Return to original directory on any other error
+            # Return to original directory on any error
             os.chdir(original_cwd)
             logger.error(f"✗ Build error: {e}")
             return False

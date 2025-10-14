@@ -2,11 +2,22 @@
   "targets": {
     "target1": {
       "description": "Primary RTLinux target - Standard test configuration",
-      "build": {
-        "source_directory": "./src",
-        "command": "gcc -o client.out client.c && gcc -o server.out server.c",
-        "outputs": ["client.out", "server.out"]
-      },
+      "builds": [
+        {
+          "name": "client",
+          "source_directory": "./src/client",
+          "output_directory": "./build",
+          "command": "gcc -o ../../build/client.out client.c",
+          "outputs": ["client.out"]
+        },
+        {
+          "name": "server",
+          "source_directory": "./src/server",
+          "output_directory": "./build",
+          "command": "gcc -o ../../build/server.out server.c",
+          "outputs": ["server.out"]
+        }
+      ],
       "ftp": {
         "host": "192.168.1.100",
         "port": 21,
@@ -25,11 +36,11 @@
       },
       "files_to_upload": [
         {
-          "local": "src/client.out",
+          "local": "build/client.out",
           "remote": "client.out"
         },
         {
-          "local": "src/server.out",
+          "local": "build/server.out",
           "remote": "server.out"
         },
         {
@@ -45,11 +56,22 @@
     },
     "target2": {
       "description": "Secondary RTLinux target - High performance build",
-      "build": {
-        "source_directory": "./src/optimized",
-        "command": "gcc -O3 -march=native -o client.out client.c && gcc -O3 -march=native -o server.out server.c",
-        "outputs": ["client.out", "server.out"]
-      },
+      "builds": [
+        {
+          "name": "client-optimized",
+          "source_directory": "./src/client",
+          "output_directory": "./build/optimized",
+          "command": "gcc -O3 -march=native -o ../../build/optimized/client.out client.c",
+          "outputs": ["client.out"]
+        },
+        {
+          "name": "server-optimized",
+          "source_directory": "./src/server",
+          "output_directory": "./build/optimized",
+          "command": "gcc -O3 -march=native -o ../../build/optimized/server.out server.c",
+          "outputs": ["server.out"]
+        }
+      ],
       "ftp": {
         "host": "192.168.1.101",
         "port": 21,
@@ -68,11 +90,11 @@
       },
       "files_to_upload": [
         {
-          "local": "src/optimized/client.out",
+          "local": "build/optimized/client.out",
           "remote": "client.out"
         },
         {
-          "local": "src/optimized/server.out",
+          "local": "build/optimized/server.out",
           "remote": "server.out"
         },
         {
@@ -88,11 +110,22 @@
     },
     "target3": {
       "description": "Development target - Debug build with symbols",
-      "build": {
-        "source_directory": "./src/debug",
-        "command": "gcc -g -Wall -Wextra -o client.out client.c && gcc -g -Wall -Wextra -o server.out server.c",
-        "outputs": ["client.out", "server.out"]
-      },
+      "builds": [
+        {
+          "name": "client-debug",
+          "source_directory": "./src/client",
+          "output_directory": "./build/debug",
+          "command": "gcc -g -Wall -Wextra -o ../../build/debug/client.out client.c",
+          "outputs": ["client.out"]
+        },
+        {
+          "name": "server-debug",
+          "source_directory": "./src/server",
+          "output_directory": "./build/debug",
+          "command": "gcc -g -Wall -Wextra -o ../../build/debug/server.out server.c",
+          "outputs": ["server.out"]
+        }
+      ],
       "ftp": {
         "host": "192.168.1.102",
         "port": 21,
@@ -111,11 +144,11 @@
       },
       "files_to_upload": [
         {
-          "local": "src/debug/client.out",
+          "local": "build/debug/client.out",
           "remote": "client.out"
         },
         {
-          "local": "src/debug/server.out",
+          "local": "build/debug/server.out",
           "remote": "server.out"
         },
         {
